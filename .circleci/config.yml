@@ -426,30 +426,29 @@ jobs:
 
   acceptance-openshift:
     environment:
-      - TEST_RESULTS: /tmp/test-results
-      # Primary and secondary Azure OpenShift clusters (created manually) that are used to run acceptance tests.
-      - OC_PRIMARY_NAME: consul-helm-test-2757871175
-      - OC_SECONDARY_NAME: consul-helm-test-3737660519
+      TEST_RESULTS: /tmp/test-results
     docker:
       # This image is built from test/docker/Test.dockerfile
       - image: docker.mirror.hashicorp.services/hashicorpdev/consul-helm-test:0.9.0
 
     steps:
       - checkout
-
       - run:
-          name: openshift login
+          name: terraform init & apply
+          working_directory: test/terraform/openshift
           command: |
+            terraform init
+
             az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID" > /dev/null
+            terraform apply \
+              -var cluster_count=2 \
+              -auto-approve
 
-            for cluster_name in "$OC_PRIMARY_NAME" "$OC_SECONDARY_NAME"; do
-              apiServer=$(az aro show -g "$cluster_name" -n "$cluster_name" --query apiserverProfile.url -o tsv)
-              kubeUser=$(az aro list-credentials -g "$cluster_name" -n "$cluster_name" | jq -r .kubeadminUsername)
-              kubePassword=$(az aro list-credentials -g "$cluster_name" -n "$cluster_name" | jq -r .kubeadminPassword)
+            primary_kubeconfig="$HOME/.kube/$(terraform output -json | jq -r .kubeconfigs.value[0])
+            secondary_kubeconfig=$(terraform output -json | jq -r .kubeconfigs.value[1])
 
-              KUBECONFIG="$HOME/.kube/$cluster_name" oc login "$apiServer" -u "$kubeUser" -p "$kubePassword"
-              KUBECONFIG="$HOME/.kube/$cluster_name" oc project consul
-            done
+            echo "export primary_kubeconfig=$primary_kubeconfig" >> $BASH_ENV
+            echo "export secondary_kubeconfig=$secondary_kubeconfig" >> $BASH_ENV
 
       # Restore go module cache if there is one
       - restore_cache:
@@ -459,15 +458,21 @@ jobs:
       - run: mkdir -p $TEST_RESULTS
 
       - run-acceptance-tests:
-          additional-flags: -kubeconfig="$HOME/.kube/$OC_PRIMARY_NAME" -secondary-kubeconfig="$HOME/.kube/$OC_SECONDARY_NAME" -enable-openshift
+          additional-flags: -kubeconfig="$primary_kubeconfig" -secondary-kubeconfig="$primary_kubeconfig" -enable-openshift -consul-k8s-image=hashicorp/consul-k8s:0.26.0-beta1 -consul-image=hashicorp/consul-enterprise:1.10.0-ent-beta1
 
       - store_test_results:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
-      - slack/status:
-          fail_only: true
-          failure_message: "OpenShift acceptance tests failed. Check the logs at: ${CIRCLE_BUILD_URL}"
+      - run:
+          name: terraform destroy
+          working_directory: test/terraform/openshift
+          command: |
+            terraform destroy -auto-approve
+          when: always
+#      - slack/status:
+#          fail_only: true
+#          failure_message: "OpenShift acceptance tests failed. Check the logs at: ${CIRCLE_BUILD_URL}"
 
   acceptance-kind-1-20:
     environment:
@@ -622,6 +627,7 @@ workflows:
             - go-fmt-and-vet-helm-gen
       - test-helm-gen
       - unit-helm
+      - acceptance-openshift
       - acceptance:
           requires:
             - unit-helm
@@ -630,6 +636,10 @@ workflows:
           requires:
             - unit-helm
             - unit-acceptance-framework
+      - acceptance-gke-1-16
+      - acceptance-eks-1-17
+      - acceptance-aks-1-18
+      - acceptance-kind-1-20
   nightly-acceptance-tests:
     triggers:
       - schedule:
@@ -639,7 +649,7 @@ workflows:
               only:
                 - master
     jobs:
-      # - acceptance-openshift >> disabled because OpenShift 4.4 was too flaky. Can possibly re-enable when latest OpenShift version is released.
+    # - acceptance-openshift >> disabled because OpenShift 4.4 was too flaky. Can possibly re-enable when latest OpenShift version is released.
       - acceptance-gke-1-16
       - acceptance-eks-1-17
       - acceptance-aks-1-18
