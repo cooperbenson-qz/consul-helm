@@ -22,6 +22,8 @@ resource "random_string" "domain" {
 }
 
 locals {
+  // This is the application ID of the Azure RedHat OpenShift resource provider.
+  // This is a constant for this resource provider.
   openshift_resource_provider_application_id = "f1dd0a37-89c6-4e07-bcd1-ffd3d43d8875"
 }
 
@@ -138,24 +140,7 @@ resource "null_resource" "aro" {
 
   triggers = {
     aro_cluster = azurerm_template_deployment.azure-arocluster[count.index].name
-    //    name          = azurerm_subnet.master-subnet[count.index].resource_group_name
-    //    master_subnet = azurerm_subnet.master-subnet[count.index].id
-    //    worker_subnet = azurerm_subnet.worker-subnet[count.index].id
   }
-
-  //  # This is a horrible hack until terraform Azure provider officially supports this resource
-  //  # https://github.com/terraform-providers/terraform-provider-azurerm/issues/3614.
-  //  provisioner "local-exec" {
-  //    command = <<EOF
-  //    az aro create \
-  //      --resource-group ${azurerm_resource_group.test[count.index].name} \
-  //      --name ${self.triggers.name} \
-  //      --vnet ${azurerm_virtual_network.test[count.index].name} \
-  //      --vnet-resource-group ${azurerm_resource_group.test[count.index].name} \
-  //      --master-subnet master-subnet \
-  //      --worker-subnet worker-subnet
-  //    EOF
-  //  }
 
   provisioner "local-exec" {
     command     = "./oc-login.sh ${self.triggers.aro_cluster} ${self.triggers.aro_cluster}"
@@ -163,8 +148,10 @@ resource "null_resource" "aro" {
     on_failure  = continue
   }
 
-    provisioner "local-exec" {
-      when    = destroy
-      command = "az aro delete --resource-group ${self.triggers.aro_cluster} --name ${self.triggers.aro_cluster} --yes"
-    }
+  // We need to explicitly delete the cluster in a local-exec because deleting azurerm_template_deployment
+  // will not delete the cluster.
+  provisioner "local-exec" {
+    when    = destroy
+    command = "az aro delete --resource-group ${self.triggers.aro_cluster} --name ${self.triggers.aro_cluster} --yes"
+  }
 }

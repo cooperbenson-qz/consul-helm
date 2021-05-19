@@ -12,5 +12,5 @@ for i in {1..20}; do KUBECONFIG="$HOME/.kube/$cluster_name" oc login "$apiServer
 
 echo "Creating the 'consul' project"
 # Idempotently, create and use the 'consul' project
-oc new-project consul
-oc project consul
+KUBECONFIG="$HOME/.kube/$cluster_name" oc new-project consul
+KUBECONFIG="$HOME/.kube/$cluster_name" oc project consul
