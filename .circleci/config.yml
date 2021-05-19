@@ -462,8 +462,8 @@ jobs:
       - run: mkdir -p $TEST_RESULTS
 
       - run-acceptance-tests:
-          consul-k8s-image: hashicorp/consul-k8s:0.26.0-beta1
-          additional-flags: -kubeconfig="$primary_kubeconfig" -secondary-kubeconfig="$primary_kubeconfig" -enable-openshift -consul-image=hashicorp/consul-enterprise:1.10.0-ent-beta1
+          consul-k8s-image: ishustava/consul-k8s-dev:05-19-2021-9f7350e
+          additional-flags: -kubeconfig="$primary_kubeconfig" -secondary-kubeconfig="$secondary_kubeconfig" -enable-openshift
 
       - store_test_results:
           path: /tmp/test-results
@@ -641,10 +641,6 @@ workflows:
           requires:
             - unit-helm
             - unit-acceptance-framework
-      - acceptance-gke-1-16
-      - acceptance-eks-1-17
-      - acceptance-aks-1-18
-      - acceptance-kind-1-20
   nightly-acceptance-tests:
     triggers:
       - schedule:
@@ -654,7 +650,7 @@ workflows:
               only:
                 - master
     jobs:
-    # - acceptance-openshift >> disabled because OpenShift 4.4 was too flaky. Can possibly re-enable when latest OpenShift version is released.
+      - acceptance-openshift
       - acceptance-gke-1-16
       - acceptance-eks-1-17
       - acceptance-aks-1-18
