@@ -442,7 +442,7 @@ jobs:
             terraform apply \
               -var client_id="$AZURE_OPENSHIFT_CLIENT_ID" \
               -var client_secret="$AZURE_OPENSHIFT_CLIENT_SECRET" \
-              -var cluster_count=2 \
+              -var cluster_count=1 \
               -var tags="{\"build_url\": \"$CIRCLE_BUILD_URL\"}" \
               -auto-approve
 
