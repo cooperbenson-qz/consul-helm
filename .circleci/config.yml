@@ -439,14 +439,13 @@ jobs:
           command: |
             terraform init
 
+            az login --service-principal -u "$ARM_CLIENT_ID" -p "$ARM_CLIENT_SECRET" --tenant "$ARM_TENANT_ID" > /dev/null
             terraform apply \
-              -var client_id="$AZURE_OPENSHIFT_CLIENT_ID" \
-              -var client_secret="$AZURE_OPENSHIFT_CLIENT_SECRET" \
               -var cluster_count=1 \
               -var tags="{\"build_url\": \"$CIRCLE_BUILD_URL\"}" \
               -auto-approve
 
-            primary_kubeconfig="$HOME/.kube/$(terraform output -json | jq -r .kubeconfigs.value[0])
+            primary_kubeconfig=$(terraform output -json | jq -r .kubeconfigs.value[0])
             secondary_kubeconfig=$(terraform output -json | jq -r .kubeconfigs.value[1])
 
             echo "export primary_kubeconfig=$primary_kubeconfig" >> $BASH_ENV

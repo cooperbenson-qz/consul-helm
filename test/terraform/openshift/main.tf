@@ -57,43 +57,39 @@ resource "azurerm_subnet" "worker-subnet" {
   service_endpoints    = ["Microsoft.ContainerRegistry"]
 }
 
-//resource "azuread_application" "test" {
-//  count = var.cluster_count
-//  name  = "aro-consul-k8s-${random_id.suffix[count.index].dec}"
-//}
-//
-//resource "azuread_service_principal" "test" {
-//  count          = var.cluster_count
-//  application_id = azuread_application.test[count.index].application_id
-//}
-//
-//resource "random_password" "password" {
-//  count   = var.cluster_count
-//  length  = 16
-//  special = false
-//}
-//
-//resource "azuread_service_principal_password" "test" {
-//  count                = var.cluster_count
-//  service_principal_id = azuread_service_principal.test[count.index].id
-//  value                = random_password.password[count.index].result
-//  end_date             = "2099-01-01T01:02:03Z"
-//}
+resource "azuread_application" "test" {
+  count        = var.cluster_count
+  display_name = "aro-consul-k8s-${random_id.suffix[count.index].dec}"
+}
+
+resource "azuread_service_principal" "test" {
+  count          = var.cluster_count
+  application_id = azuread_application.test[count.index].application_id
+}
+
+resource "random_password" "password" {
+  count   = var.cluster_count
+  length  = 16
+  special = false
+}
+
+resource "azuread_service_principal_password" "test" {
+  count                = var.cluster_count
+  service_principal_id = azuread_service_principal.test[count.index].id
+  value                = random_password.password[count.index].result
+  end_date             = "2099-01-01T01:02:03Z"
+}
 
 data "azuread_service_principal" "openshift_rp" {
   application_id = local.openshift_resource_provider_application_id
 }
 
-//data "azuread_service_principal" "client" {
-//  application_id = var.client_id
-//}
-
-//resource "azurerm_role_assignment" "vnet_assignment" {
-//  count                = var.cluster_count
-//  scope                = azurerm_virtual_network.test[count.index].id
-//  role_definition_name = "Network Contributor"
-//  principal_id         = data.azuread_service_principal.client.object_id
-//}
+resource "azurerm_role_assignment" "vnet_assignment" {
+  count                = var.cluster_count
+  scope                = azurerm_virtual_network.test[count.index].id
+  role_definition_name = "Network Contributor"
+  principal_id         = azuread_service_principal.test[count.index].object_id
+}
 
 resource "azurerm_role_assignment" "rp_assignment" {
   count                = var.cluster_count
@@ -118,17 +114,22 @@ resource "azurerm_template_deployment" "azure-arocluster" {
 
     domain = random_string.domain[count.index].result
 
-    clientId     = var.client_id
-    clientSecret = var.client_secret
+    clientId     = azuread_application.test[count.index].application_id
+    clientSecret = azuread_service_principal_password.test[count.index].value
 
     workerSubnetId = azurerm_subnet.worker-subnet[count.index].id
     masterSubnetId = azurerm_subnet.master-subnet[count.index].id
+  }
+
+  timeouts {
+    create = "90m"
   }
 
   deployment_mode = "Incremental"
 
   depends_on = [
     azurerm_role_assignment.rp_assignment,
+    azurerm_role_assignment.vnet_assignment,
   ]
 }
 
@@ -162,8 +163,8 @@ resource "null_resource" "aro" {
     on_failure  = continue
   }
 
-  //  provisioner "local-exec" {
-  //    when    = destroy
-  //    command = "az aro delete --resource-group ${self.triggers.name} --name ${self.triggers.name} --yes"
-  //  }
+    provisioner "local-exec" {
+      when    = destroy
+      command = "az aro delete --resource-group ${self.triggers.aro_cluster} --name ${self.triggers.aro_cluster} --yes"
+    }
 }
