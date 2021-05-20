@@ -90,7 +90,9 @@ commands:
                 working_directory: test/acceptance/tests
                 no_output_timeout: 2h
                 command: |
-                  gotestsum --junitfile "$TEST_RESULTS/gotestsum-report.xml" -- ./... -p 1 -timeout 2h -failfast \
+                  pkgs=$(go list ./... | circleci tests split --split-by=timings --timings-type=classname)
+                  echo "Running $pkgs"
+                  gotestsum --junitfile "$TEST_RESULTS/gotestsum-report.xml" -- $pkgs -p 1 -timeout 2h -failfast \
                       << parameters.additional-flags >> \
                       -enable-multi-cluster \
                       -enable-enterprise \
@@ -430,6 +432,7 @@ jobs:
   acceptance-openshift:
     environment:
       TEST_RESULTS: /tmp/test-results
+    parallelism: 2
     docker:
       # This image is built from test/docker/Test.dockerfile
       - image: docker.mirror.hashicorp.services/hashicorpdev/consul-helm-test:0.9.0
