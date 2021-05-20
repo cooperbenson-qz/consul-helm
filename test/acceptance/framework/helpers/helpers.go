@@ -34,11 +34,11 @@ func WaitForAllPodsToBeReady(t *testing.T, client kubernetes.Interface, namespac
 
 	logger.Log(t, "Waiting for pods to be ready.")
 
-	// Wait up to 30m.
+	// Wait up to 15m.
 	// On Azure, volume provisioning can sometimes take close to 5 min,
 	// so we need to give a bit more time for pods to become healthy.
-	retrier := &retry.Timer{Timeout: 30 * time.Minute, Wait: 1 * time.Second}
-	retry.RunWith(retrier, t, func(r *retry.R) {
+	counter := &retry.Counter{Count: 180, Wait: 5 * time.Second}
+	retry.RunWith(counter, t, func(r *retry.R) {
 		pods, err := client.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: podLabelSelector})
 		require.NoError(r, err)
 
@@ -54,7 +54,7 @@ func WaitForAllPodsToBeReady(t *testing.T, client kubernetes.Interface, namespac
 	})
 }
 
-// SetupInterruptHandler sets up a goroutine that will wait for interrupt signals
+// Sets up a goroutine that will wait for interrupt signals
 // and call cleanup function when it catches it.
 func SetupInterruptHandler(cleanup func()) {
 	c := make(chan os.Signal)
