@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// Cluster represents a consul cluster object
+// Cluster represents a consul cluster object.
 type Cluster interface {
 	Create(t *testing.T)
 	Destroy(t *testing.T)
@@ -39,7 +39,7 @@ type Cluster interface {
 }
 
 // HelmCluster implements Cluster and uses Helm
-// to create, destroy, and upgrade consul
+// to create, destroy, and upgrade consul.
 type HelmCluster struct {
 	cfg                config.TestConfig
 	ctx                environment.TestContext
@@ -73,17 +73,17 @@ func NewHelmCluster(
 	valuesFromConfig, err := cfg.HelmValuesFromConfig()
 	require.NoError(t, err)
 
-	// Merge all helm values
+	// Merge all helm values.
 	mergeMaps(values, valuesFromConfig)
 	mergeMaps(values, helmValues)
 
 	logger := terratestLogger.New(logger.TestLogger{})
 
-	// Wait up to 15 min for K8s resources to be in a ready state. Increasing
+	// Wait up to 30 min for K8s resources to be in a ready state. Increasing
 	// this from the default of 5 min could help with flakiness in environments
 	// like AKS where volumes take a long time to mount.
 	extraArgs := map[string][]string{
-		"install": {"--timeout", "15m"},
+		"install": {"--timeout", "30m"},
 	}
 
 	opts := &helm.Options{
