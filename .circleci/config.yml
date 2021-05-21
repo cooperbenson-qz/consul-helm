@@ -465,7 +465,7 @@ jobs:
       - run: mkdir -p $TEST_RESULTS
 
       - run-acceptance-tests:
-          consul-k8s-image: ishustava/consul-k8s-dev:05-19-2021-9f7350e
+          consul-k8s-image: ishustava/consul-k8s-dev:05-21-2021-fd4dd7d
           additional-flags: -kubeconfig="$primary_kubeconfig" -secondary-kubeconfig="$secondary_kubeconfig" -enable-openshift
 
       - store_test_results:
